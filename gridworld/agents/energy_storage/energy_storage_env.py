@@ -10,6 +10,8 @@ from gridworld.utils import maybe_rescale_box_space, to_raw, to_scaled
 
 from gridworld.log import logger
 
+from utils import get_data
+import datetime
 
 class EnergyStorageEnv(ComponentEnv):
     """Simple model of energy storage device that has (separate) linear models 
@@ -32,6 +34,7 @@ class EnergyStorageEnv(ComponentEnv):
         max_episode_steps: int = 288,
         control_timedelta: pd.Timedelta = pd.Timedelta(300, "s"),
         rescale_spaces: bool = True,
+        date = pd.Timestamp('2021-10-01', tz='UTC'),
         **kwargs
     ):
 
@@ -51,7 +54,7 @@ class EnergyStorageEnv(ComponentEnv):
 
         self.control_interval_in_hr = control_timedelta.seconds / 3600.0
 
-        self._obs_labels = ["stage_of_charge"]
+        # self._obs_labels = ["stage_of_charge"]
 
         self._observation_space = gym.spaces.Box(
             shape=(1,),
@@ -71,13 +74,44 @@ class EnergyStorageEnv(ComponentEnv):
         self.action_space = maybe_rescale_box_space(
             self._action_space, rescale=self.rescale_spaces)
 
+        lmp_df, load_df, load_forecast_df, moer_df, solar_wind_forecast_df = get_data(date, date+datetime.timedelta(hours=24))
+        
+        if len(lmp_df) != 288:
+            raise Exception("Incomplete LMP data for this date. Data is available for 2021-10-01 to 2024-09-30, with many missing data in the months of Nov-Mar.")
+        if len(load_df) != 288:
+            raise Exception("Incomplete load data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
+        if len(moer_df) != 288:
+            raise Exception("Incomplete MOER data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
+        if len(load_forecast_df) != 24:
+            raise Exception("Incomplete load forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
+        if len(solar_wind_forecast_df) != 24:
+            raise Exception("Incomplete solar and wind forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
+            
+        self.date = date
+        self.lmp_df = lmp_df
+        self.load_df = load_df
+        self.load_forecast_df = load_forecast_df
+        self.moer_df = moer_df
+        self.solar_wind_forecast_df = solar_wind_forecast_df
+
+        self.current_datetime = date
+        _get_data_at_current_dt(self.current_datetime)
+
+    def _get_data_at_current_dt(datetime):
+        self.lmp = lmp_df[lmp_df['interval_start'] == datetime].lmp.values.item()
+        self.load = load_df[load_df['interval_start'] == datetime].load.values.item()
+        self.load_forecast = load_forecast_df[load_forecast_df['interval_start'] == datetime].load_forecast.values.item()
+        self.moer = moer_df[moer_df['interval_start'] == datetime].moer.values.item()
+        self.solar_forecast = solar_wind_forecast_df[solar_wind_forecast_df['interval_start'] == datetime].solar_mw.values.item()
+        self.wind_forecast = solar_wind_forecast_df[solar_wind_forecast_df['interval_start'] == datetime].wind_mw.values.item()
 
     def reset(self, **kwargs):
         """ Reset the battery storage at the beginning of an episode.
         """
 
         self.simulation_step = 0
-
+        self.current_datetime = self.date
+        
         init_storage = kwargs['init_storage'] if 'init_storage' in kwargs.keys() else None
 
         if init_storage is None:
@@ -135,6 +169,10 @@ class EnergyStorageEnv(ComponentEnv):
         """ Implement control to the storage.
         """
 
+        self.simulation_step += 1
+        self.current_datetime = self.current_datetime + datetime.timedelta(minutes=5)
+        _get_data_at_current_dt(self.current_datetime)
+
         if self.rescale_spaces:
             action = to_raw(action, self._action_space.low, self._action_space.high)
 
@@ -155,8 +193,6 @@ class EnergyStorageEnv(ComponentEnv):
         obs, obs_meta = self.get_obs()
         rew, _ = self.step_reward()
 
-        self.simulation_step += 1
-
         return obs, rew, self.is_terminal(), obs_meta
 
     def step_reward(self):
@@ -176,6 +212,8 @@ class EnergyStorageEnv(ComponentEnv):
         else:
             obs = raw_obs
 
+        obs = [obs, self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast]
+        
         return obs, {"state_of_charge": raw_obs}
 
     def is_terminal(self):
