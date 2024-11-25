@@ -206,17 +206,18 @@ class EnergyStorageEnv(ComponentEnv):
             self.current_storage -= power * self.control_interval_in_hr / self.discharge_efficiency
             self.current_storage = max(self.current_storage, self.storage_range[0])
 
-        #  Convert to the positive for load and  negative for generation convention.
+        #  Convert to the positive for load and negative for generation convention.
         self._real_power = -power
 
         obs, obs_meta = self.get_obs()
-        rew, _ = self.step_reward()
+        rew, _ = self.step_reward(power)
 
         return obs, rew, self.is_terminal(), obs_meta
 
-    def step_reward(self):
-
-        es_reward = 0.0  # Currently we don't have a component level reward for energy storage
+    def step_reward(self, power):
+        # Reward = (electricity price per unit + moer per unit) * units discharged/charged (negative for charging, positive for discharging) 
+        es_reward = (self.lmp + self.moer) * power
+        # es_reward = 0.0  # Currently we don't have a component level reward for energy storage
         reward_meta = {}
 
         return es_reward, reward_meta
