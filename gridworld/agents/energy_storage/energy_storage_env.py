@@ -31,7 +31,7 @@ class EnergyStorageEnv(ComponentEnv):
         charge_efficiency: float = 0.95,
         discharge_efficiency: float = 0.9,
         max_power: float = 15.0,
-        max_episode_steps: int = 288,
+        max_episode_steps: int = 288-1, # the 287th decision is for the final 5 minutes of the day
         control_timedelta: pd.Timedelta = pd.Timedelta(300, "s"),
         rescale_spaces: bool = True,
         date = pd.Timestamp('2021-10-01', tz='UTC'),
@@ -54,7 +54,13 @@ class EnergyStorageEnv(ComponentEnv):
 
         self.control_interval_in_hr = control_timedelta.seconds / 3600.0
 
-        # self._obs_labels = ["stage_of_charge"]
+        self._obs_labels = ["stage_of_charge",
+                            "locational_marginal_price",
+                            "load",
+                            "load_forecast",
+                            "marginal_operating_emissions_rate",
+                            "solar_forecast",
+                            "wind_forecast"]
 
         self._observation_space = gym.spaces.Box(
             shape=(1,),
@@ -74,6 +80,7 @@ class EnergyStorageEnv(ComponentEnv):
         self.action_space = maybe_rescale_box_space(
             self._action_space, rescale=self.rescale_spaces)
 
+        print(f'Retrieving data for {date.date()}...')
         lmp_df, load_df, load_forecast_df, moer_df, solar_wind_forecast_df = get_data(date, date+datetime.timedelta(hours=24))
         
         if len(lmp_df) != 288:
@@ -86,6 +93,8 @@ class EnergyStorageEnv(ComponentEnv):
             raise Exception("Incomplete load forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
         if len(solar_wind_forecast_df) != 24:
             raise Exception("Incomplete solar and wind forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
+
+        print('Data retrieved!')
             
         self.date = date
         self.lmp_df = lmp_df
@@ -95,15 +104,25 @@ class EnergyStorageEnv(ComponentEnv):
         self.solar_wind_forecast_df = solar_wind_forecast_df
 
         self.current_datetime = date
-        _get_data_at_current_dt(self.current_datetime)
+        self._update_current_obs()
 
-    def _get_data_at_current_dt(datetime):
-        self.lmp = lmp_df[lmp_df['interval_start'] == datetime].lmp.values.item()
-        self.load = load_df[load_df['interval_start'] == datetime].load.values.item()
-        self.load_forecast = load_forecast_df[load_forecast_df['interval_start'] == datetime].load_forecast.values.item()
-        self.moer = moer_df[moer_df['interval_start'] == datetime].moer.values.item()
-        self.solar_forecast = solar_wind_forecast_df[solar_wind_forecast_df['interval_start'] == datetime].solar_mw.values.item()
-        self.wind_forecast = solar_wind_forecast_df[solar_wind_forecast_df['interval_start'] == datetime].wind_mw.values.item()
+    def _update_current_obs(self):
+        # get current values 
+        self.lmp = self.lmp_df[self.lmp_df['interval_start'] == self.current_datetime].lmp.values.item()
+        self.load = self.load_df[self.load_df['interval_start'] == self.current_datetime].load.values.item()
+        self.moer = self.moer_df[self.moer_df['interval_start'] == self.current_datetime].moer.values.item()
+
+        # get forecasts 
+        self.load_forecast = self._get_hourly_forecast_for_next_5_min(self.load_forecast_df).load_forecast.values.item()
+        self.solar_forecast = self._get_hourly_forecast_for_next_5_min(self.solar_wind_forecast_df).solar_mw.values.item()
+        self.wind_forecast = self._get_hourly_forecast_for_next_5_min(self.solar_wind_forecast_df).wind_mw.values.item()
+
+    def _get_hourly_forecast_for_next_5_min(self, df):
+        if self.simulation_step != self.max_episode_steps:
+            forecast_datetime = self.current_datetime + datetime.timedelta(minutes=5)
+        else:
+            forecast_datetime = self.current_datetime
+        return df[((df['interval_start'] <= forecast_datetime).values & (df['interval_end'] > forecast_datetime).values)]
 
     def reset(self, **kwargs):
         """ Reset the battery storage at the beginning of an episode.
@@ -171,7 +190,7 @@ class EnergyStorageEnv(ComponentEnv):
 
         self.simulation_step += 1
         self.current_datetime = self.current_datetime + datetime.timedelta(minutes=5)
-        _get_data_at_current_dt(self.current_datetime)
+        self._update_current_obs()
 
         if self.rescale_spaces:
             action = to_raw(action, self._action_space.low, self._action_space.high)
@@ -212,9 +231,15 @@ class EnergyStorageEnv(ComponentEnv):
         else:
             obs = raw_obs
 
-        obs = [obs, self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast]
+        obs = [obs.item(), self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast]
         
-        return obs, {"state_of_charge": raw_obs}
+        return obs, {"state_of_charge": raw_obs, 
+                     "locational_marginal_price": self.lmp, 
+                     "load": self.load, 
+                     "load_forecast": self.load_forecast,
+                     "marginal_operating_emissions_rate": self.moer, 
+                     "solar_forecast": self.solar_forecast,
+                     "wind_forecast": self.wind_forecast}
 
     def is_terminal(self):
         return self.simulation_step >= self.max_episode_steps
