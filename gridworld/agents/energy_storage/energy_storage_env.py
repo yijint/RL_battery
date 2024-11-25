@@ -31,7 +31,7 @@ class EnergyStorageEnv(ComponentEnv):
         charge_efficiency: float = 0.95,
         discharge_efficiency: float = 0.9,
         max_power: float = 15.0,
-        max_episode_steps: int = 288-1, # the 287th decision is for the final 5 minutes of the day
+        max_episode_steps: int = 288, 
         control_timedelta: pd.Timedelta = pd.Timedelta(300, "s"),
         rescale_spaces: bool = True,
         date = pd.Timestamp('2021-10-01', tz='UTC'),
@@ -81,17 +81,17 @@ class EnergyStorageEnv(ComponentEnv):
             self._action_space, rescale=self.rescale_spaces)
 
         print(f'Retrieving data for {date.date()}...')
-        lmp_df, load_df, load_forecast_df, moer_df, solar_wind_forecast_df = get_data(date, date+datetime.timedelta(hours=24))
+        lmp_df, load_df, load_forecast_df, moer_df, solar_wind_forecast_df = get_data(date, date+datetime.timedelta(hours=24)+datetime.timedelta(minutes=5))
         
-        if len(lmp_df) != 288:
+        if len(lmp_df) != 288+1:
             raise Exception("Incomplete LMP data for this date. Data is available for 2021-10-01 to 2024-09-30, with many missing data in the months of Nov-Mar.")
-        if len(load_df) != 288:
+        if len(load_df) != 288+1:
             raise Exception("Incomplete load data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
-        if len(moer_df) != 288:
+        if len(moer_df) != 288+1:
             raise Exception("Incomplete MOER data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
-        if len(load_forecast_df) != 24:
+        if len(load_forecast_df) != 24+1:
             raise Exception("Incomplete load forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
-        if len(solar_wind_forecast_df) != 24:
+        if len(solar_wind_forecast_df) != 24+1:
             raise Exception("Incomplete solar and wind forecast data for this date. Data is available for 2021-10-01 to 2024-09-30, with some missing spots.")
 
         print('Data retrieved!')
@@ -118,10 +118,10 @@ class EnergyStorageEnv(ComponentEnv):
         self.wind_forecast = self._get_hourly_forecast_for_next_5_min(self.solar_wind_forecast_df).wind_mw.values.item()
 
     def _get_hourly_forecast_for_next_5_min(self, df):
-        if self.simulation_step != self.max_episode_steps:
-            forecast_datetime = self.current_datetime + datetime.timedelta(minutes=5)
-        else:
-            forecast_datetime = self.current_datetime
+        # if self.simulation_step != self.max_episode_steps:
+        forecast_datetime = self.current_datetime + datetime.timedelta(minutes=5)
+        # else:
+        #     forecast_datetime = self.current_datetime
         return df[((df['interval_start'] <= forecast_datetime).values & (df['interval_end'] > forecast_datetime).values)]
 
     def reset(self, **kwargs):
