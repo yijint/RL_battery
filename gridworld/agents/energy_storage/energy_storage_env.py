@@ -76,7 +76,7 @@ class EnergyStorageEnv(ComponentEnv):
             low=-1.0,
             high=1.0,
             dtype=np.float64
-        )
+        ) # continuous action space
         self.action_space = maybe_rescale_box_space(
             self._action_space, rescale=self.rescale_spaces)
 
@@ -268,4 +268,3 @@ if __name__ == '__main__':
     plt.plot(power_history)
     plt.plot(soc_history)
     plt.show()
-
