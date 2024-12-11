@@ -1,0 +1,39 @@
+# Setting up conda environment to run gridworld and cleanRL
+# Run the setup in this exact order. Most other set up orders will result in conflicts.
+
+# create conda environment 
+conda create -n thesis python=3.8.3 -y
+conda activate thesis 
+
+# install cleanRL
+# git clone https://github.com/vwxyzjn/cleanrl.git 
+# cd cleanrl
+
+pip install -r requirements/requirements.txt
+pip install -r requirements/requirements-atari.txt
+pip install -r requirements/requirements-mujoco.txt
+pip install -r requirements/requirements-mujoco_py.txt
+pip install -r requirements/requirements-procgen.txt
+pip install -r requirements/requirements-envpool.txt
+pip install -r requirements/requirements-pettingzoo.txt
+pip install -r requirements/requirements-jax.txt
+pip install -r requirements/requirements-docs.txt
+pip install -r requirements/requirements-cloud.txt
+
+# install PowerGridWorld
+# see https://github.com/NREL/PowerGridworld
+# git clone git@github.com:NREL/PowerGridworld.git
+# cd PowerGridWorld
+pip3 install --user -e .
+pip3 install --user -r requirements.txt
+
+# there may be errors regarding package versions - install the correct versions accordingly 
+pip install matplotlib==3.7.1 # conflicts with cleanrl (3.5.3)
+pip install nbmake==1.4.1
+pip install notebook==6.5.4
+pip install opendssdirect-py==0.8.2
+pip install pandas==2.0.1 # conflicts with cleanrl (1.3.5)
+pip install pytest==7.3.1
+
+# install ray
+pip install -U "ray[rllib]"
