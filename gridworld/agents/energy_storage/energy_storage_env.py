@@ -63,11 +63,20 @@ class EnergyStorageEnv(ComponentEnv):
                             "wind_forecast"]
 
         self._observation_space = gym.spaces.Box(
-            shape=(1,),
-            low=self.storage_range[0],
-            high=self.storage_range[1],
+            shape=(7,),
+            low=np.array(self.storage_range[0],0,0,0,0,0,0),
+            high=np.array(self.storage_range[1],np.inf,np.inf,np.inf,np.inf,np.inf,np.inf),
             dtype=np.float64
         )
+        
+        # obs = np.array([obs.item(), 
+        # self.lmp, 
+        # self.load, 
+        # self.load_forecast, 
+        # self.moer, 
+        # self.solar_forecast, 
+        # self.wind_forecast])
+        
         self.observation_space = maybe_rescale_box_space(
             self._observation_space, rescale=self.rescale_spaces)
 
@@ -232,7 +241,7 @@ class EnergyStorageEnv(ComponentEnv):
         else:
             obs = raw_obs
 
-        obs = [obs.item(), self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast]
+        obs = np.array([obs.item(), self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast])
         
         return obs, {"state_of_charge": raw_obs, 
                      "locational_marginal_price": self.lmp, 
