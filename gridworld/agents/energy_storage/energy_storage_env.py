@@ -64,8 +64,8 @@ class EnergyStorageEnv(ComponentEnv):
 
         self._observation_space = gym.spaces.Box(
             shape=(7,),
-            low=np.array(self.storage_range[0],0,0,0,0,0,0),
-            high=np.array(self.storage_range[1],np.inf,np.inf,np.inf,np.inf,np.inf,np.inf),
+            low=np.array([self.storage_range[0],0,0,0,0,0,0]),
+            high=np.array([self.storage_range[1],np.inf,np.inf,np.inf,np.inf,np.inf,np.inf]),
             dtype=np.float64
         )
         
