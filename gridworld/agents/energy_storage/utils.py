@@ -38,3 +38,13 @@ def get_data(start_date, end_date):
     moer_df = get_desired_dates(moer_df, start_date, end_date)
     solar_wind_forecast_df = get_desired_dates(solar_wind_forecast_df, start_date, end_date)
     return lmp_df, load_df, load_forecast_df, moer_df, solar_wind_forecast_df
+
+def register_env(env_id):
+    from energy_storage_env import EnergyStorageEnv
+    from gymnasium.envs.registration import register
+    
+    register(
+        id=env_id,
+        entry_point="energy_storage_env:EnergyStorageEnv",
+        max_episode_steps=288
+    )
