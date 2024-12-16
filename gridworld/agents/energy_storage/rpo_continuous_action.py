@@ -37,11 +37,11 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 8000000
+    total_timesteps: int = 288*28 
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
-    num_envs: int = 1
+    num_envs: int = 4
     """the number of parallel game environments"""
     num_steps: int = 2048
     """the number of steps to run in each environment per policy rollout"""
@@ -85,12 +85,10 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
     def thunk():
         utils.register_env(env_id)
         if capture_video and idx == 0:
-            env = gym.vector.AsyncVectorEnv([lambda: gym.make(env_id, render_mode="rgb_array") for _ in range(5)])
-            # env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.make(env_id, render_mode="rgb_array")
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.vector.AsyncVectorEnv([lambda: gym.make(env_id) for _ in range(5)])
-            # env = gym.make(env_id)
+            env = gym.make(env_id)
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
