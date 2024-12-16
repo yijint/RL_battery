@@ -69,17 +69,16 @@ class EnergyStorageEnv(ComponentEnv):
             dtype=np.float64
         )
         
-        # obs = np.array([obs.item(), 
-        # self.lmp, 
-        # self.load, 
-        # self.load_forecast, 
-        # self.moer, 
-        # self.solar_forecast, 
-        # self.wind_forecast])
-        
         self.observation_space = maybe_rescale_box_space(
             self._observation_space, rescale=self.rescale_spaces)
-
+        
+        self._storage_observation_space = gym.spaces.Box(
+            shape=(1,),
+            low=self.storage_range[0],
+            high=self.storage_range[1],
+            dtype=np.float64
+        )
+        
         self._action_space = gym.spaces.Box(
             shape=(1,),
             low=-1.0,
@@ -220,8 +219,9 @@ class EnergyStorageEnv(ComponentEnv):
 
         obs, obs_meta = self.get_obs()
         rew, _ = self.step_reward(power)
+        is_truncated = False # there is no reason for truncation in this environment
 
-        return obs, rew, self.is_terminal(), obs_meta
+        return obs, rew, self.is_terminal(), is_truncated, obs_meta
 
     def step_reward(self, power):
         # Reward = (electricity price per unit + moer per unit) * units discharged/charged (negative for charging, positive for discharging) 
@@ -237,10 +237,10 @@ class EnergyStorageEnv(ComponentEnv):
 
         raw_obs = np.array([self.current_storage])
         if self.rescale_spaces:
-            obs = to_scaled(raw_obs, self._observation_space.low, self._observation_space.high)
+            obs = to_scaled(raw_obs, self._storage_observation_space.low, self._storage_observation_space.high)
         else:
             obs = raw_obs
-
+        
         obs = np.array([obs.item(), self.lmp, self.load, self.load_forecast, self.moer, self.solar_forecast, self.wind_forecast])
         
         return obs, {"state_of_charge": raw_obs, 
@@ -253,7 +253,6 @@ class EnergyStorageEnv(ComponentEnv):
 
     def is_terminal(self):
         return self.simulation_step >= self.max_episode_steps
-
 
 if __name__ == '__main__':
 
