@@ -85,10 +85,12 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
     def thunk():
         utils.register_env(env_id)
         if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.vector.AsyncVectorEnv([lambda: gym.make(env_id, render_mode="rgb_array") for _ in range(5)])
+            # env = gym.make(env_id, render_mode="rgb_array")
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id)
+            env = gym.vector.AsyncVectorEnv([lambda: gym.make(env_id) for _ in range(5)])
+            # env = gym.make(env_id)
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
