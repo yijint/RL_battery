@@ -37,14 +37,14 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 288*28 
-    """total timesteps of the experiments"""
+    total_timesteps: int = 288*10*28 
+    """total timesteps of the experiments: 28 days in each of the 10 environments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
-    num_envs: int = 4
+    num_envs: int = 10
     """the number of parallel game environments"""
-    num_steps: int = 2048
-    """the number of steps to run in each environment per policy rollout"""
+    num_steps: int = 288
+    """the number of steps to run in each environment per policy rollout: update every day"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks"""
     gamma: float = 0.99
